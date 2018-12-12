@@ -1,0 +1,294 @@
+{
+  "metadata" : {
+    "id" : "0f02e1cf-a878-402c-a672-511fa0a5cb74",
+    "name" : "capstone",
+    "user_save_timestamp" : "1970-01-01T01:00:00.000Z",
+    "auto_save_timestamp" : "1970-01-01T01:00:00.000Z",
+    "language_info" : {
+      "name" : "scala",
+      "file_extension" : "scala",
+      "codemirror_mode" : "text/x-scala"
+    },
+    "trusted" : true,
+    "sparkNotebook" : null,
+    "customLocalRepo" : null,
+    "customRepos" : null,
+    "customDeps" : null,
+    "customImports" : null,
+    "customArgs" : null,
+    "customSparkConf" : {
+      "spark.app.name" : "Capstone",
+      "spark.master" : "local[*]",
+      "spark.executor.memory" : "1000m"
+    },
+    "customVars" : null
+  },
+  "cells" : [ {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "ACAE61840637435B825E69A8566AB952"
+    },
+    "cell_type" : "code",
+    "source" : "import java.time.LocalDate\nimport scala.math.{abs, acos, sin, cos}\nimport java.lang.instrument.Instrumentation;\n\ntype Temperature = Double\ntype Year = Int \n\ncase class Location(lat: Double, lon: Double) {\n\n  val earthRadius = 6371 // Mean earth radius\n  lazy val latRadians  = toRadians(lat)\n  lazy val lonRadians  = toRadians(lon)\n\n  def isAntipode(other: Location): Boolean = (lat == -other.lat) && (abs(lon - other.lon) == 180)\n\n  def toRadians(x: Double): Double = (x * math.Pi) / 180.0\n\n  def distance(other: Location): Double = {\n    if (other == this) 0.0\n    else if (isAntipode(other)) earthRadius * math.Pi\n    else {\n      // Great-circle distance: https://en.wikipedia.org/wiki/Great-circle_distance\n      val deltaLon = abs(lonRadians - other.lonRadians)\n      val centralAngle = acos(sin(latRadians) * sin(other.latRadians) + cos(latRadians) * cos(other.latRadians) * cos(deltaLon))\n      earthRadius * centralAngle\n    }\n  }\n}\n\ncase class Color(red: Int, green: Int, blue: Int)\n\ndef toCelsius(f: Double): Double = (f - 32.0) * (5.0/9.0)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import java.time.LocalDate\nimport scala.math.{abs, acos, sin, cos}\nimport java.lang.instrument.Instrumentation\ndefined type alias Temperature\ndefined type alias Year\ndefined class Location\ndefined class Color\ntoCelsius: (f: Double)Double\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 15,
+      "time" : "Took: 2.070s, at 2018-10-16 21:45"
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "4125CEE6484342D3815EFA6BCC3E6A88"
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.types._\n\nval stationSchema: StructType = StructType(\n    Seq(\n      StructField(\"STN\", IntegerType, false),\n      StructField(\"WBAN\", IntegerType, false),\n      StructField(\"Lat\", DoubleType, false),\n      StructField(\"Long\", DoubleType, false)\n    ))\n\n  val tempSchema: StructType =StructType(\n    Seq(\n      StructField(\"STN\", IntegerType, false),\n      StructField(\"WBAN\", IntegerType, false),\n      StructField(\"Month\", IntegerType, false),\n      StructField(\"Day\", IntegerType, false),\n      StructField(\"Temp\", DoubleType, false)\n    ))",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.sql.types._\nstationSchema: org.apache.spark.sql.types.StructType = StructType(StructField(STN,IntegerType,false), StructField(WBAN,IntegerType,false), StructField(Lat,DoubleType,false), StructField(Long,DoubleType,false))\ntempSchema: org.apache.spark.sql.types.StructType = StructType(StructField(STN,IntegerType,false), StructField(WBAN,IntegerType,false), StructField(Month,IntegerType,false), StructField(Day,IntegerType,false), StructField(Temp,DoubleType,false))\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 2,
+      "time" : "Took: 2.175s, at 2018-10-16 21:24"
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "BF5B752470E442FA842E0ABE18FFEC7F"
+    },
+    "cell_type" : "code",
+    "source" : "\nval stationsFile = \"/Users/chemalizano/Work/Learning/Scala/Coursera/Functional programming in Scala/Capstone/observatory/src/main/resources/stations.csv\"\nval stationsDf = sparkSession.read.schema(stationSchema).csv(stationsFile).na.fill(0, Seq(\"STM\", \"WBAN\"))\n\nstationsDf.show()\n\nval tempFile = \"/Users/chemalizano/Work/Learning/Scala/Coursera/Functional programming in Scala/Capstone/observatory/src/main/resources/1975.csv\"\nval tempDf = sparkSession.read.schema(tempSchema).csv(tempFile).na.fill(0, Seq(\"STM\", \"WBAN\"))\n\ntempDf.show()\n",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+----+----+-----+------+\n| STN|WBAN|  Lat|  Long|\n+----+----+-----+------+\n|7005|   0| null|  null|\n|7011|   0| null|  null|\n|7018|   0|  0.0|   0.0|\n|7025|   0| null|  null|\n|7026|   0|  0.0|   0.0|\n|7034|   0| null|  null|\n|7037|   0| null|  null|\n|7044|   0| null|  null|\n|7047|   0| null|  null|\n|7052|   0| null|  null|\n|7059|   0| null|  null|\n|7064|   0| null|  null|\n|7070|   0|  0.0|   0.0|\n|7072|   0| null|  null|\n|7076|   0| null|  null|\n|7083|   0| null|  null|\n|7084|   0| null|  null|\n|7094|   0| null|  null|\n|8268|   0|32.95|65.567|\n|8307|   0|  0.0|   0.0|\n+----+----+-----+------+\nonly showing top 20 rows\n\n+-----+----+-----+---+----+\n|  STN|WBAN|Month|Day|Temp|\n+-----+----+-----+---+----+\n|10010|   0|    1|  1|23.2|\n|10010|   0|    1|  2|18.7|\n|10010|   0|    1|  3|14.2|\n|10010|   0|    1|  4|14.8|\n|10010|   0|    1|  5|14.9|\n|10010|   0|    1|  6|26.4|\n|10010|   0|    1|  7|22.5|\n|10010|   0|    1|  8|15.0|\n|10010|   0|    1|  9|17.6|\n|10010|   0|    1| 10|17.6|\n|10010|   0|    1| 11|15.8|\n|10010|   0|    1| 12|12.6|\n|10010|   0|    1| 13|15.1|\n|10010|   0|    1| 14|17.8|\n|10010|   0|    1| 15|14.7|\n|10010|   0|    1| 16|16.1|\n|10010|   0|    1| 17|14.3|\n|10010|   0|    1| 18|13.5|\n|10010|   0|    1| 19|17.2|\n|10010|   0|    1| 20|16.5|\n+-----+----+-----+---+----+\nonly showing top 20 rows\n\nstationsFile: String = /Users/chemalizano/Work/Learning/Scala/Coursera/Functional programming in Scala/Capstone/observatory/src/main/resources/stations.csv\nstationsDf: org.apache.spark.sql.DataFrame = [STN: int, WBAN: int ... 2 more fields]\ntempFile: String = /Users/chemalizano/Work/Learning/Scala/Coursera/Functional programming in Scala/Capstone/observatory/src/main/resources/1975.csv\ntempDf: org.apache.spark.sql.DataFrame = [STN: int, WBAN: int ... 3 more fields]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 3,
+      "time" : "Took: 8.642s, at 2018-10-16 21:24"
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "192E562DC1D44BCFA494AF0758CB0B85"
+    },
+    "cell_type" : "code",
+    "source" : "val joined = stationsDf\n              .na.drop(Seq(\"Lat\", \"Long\")) // Retain only stations with gps info\n              .join(tempDf, Seq(\"STN\", \"WBAN\"))\n              .rdd\n              .map(row => (LocalDate.of(2015, row.getAs[Int](\"Month\"), row.getAs[Int](\"Day\")),\n                          Location(row.getAs[Double](\"Lat\"), row.getAs[Double](\"Long\")),\n                          toCelsius(row.getAs[Temperature](\"Temp\")))\n              )\n\nval cummtempDf = joined\n                .map(t => (t._2, (t._3, 1.0)))\n                .reduceByKey((x, y) => (x._1 + y._1, x._2 + y._2))\n                .mapValues({case (sumTemp, n) => sumTemp/n})\n                .cache()\n\ncummtempDf.count()\n",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "joined: org.apache.spark.rdd.RDD[(java.time.LocalDate, Location, Double)] = MapPartitionsRDD[13] at map at <console>:89\ncummtempDf: org.apache.spark.rdd.RDD[(Location, Double)] = MapPartitionsRDD[16] at mapValues at <console>:97\nres5: Long = 8250\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "8250"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 4,
+      "time" : "Took: 1m20.840s, at 2018-10-16 21:25"
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "D093FADFE4E145318D428DC7FACC78A9"
+    },
+    "cell_type" : "code",
+    "source" : "val cummtempSeq = cummtempDf.collect().toIterable",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "cummtempSeq: Iterable[(Location, Double)] = WrappedArray((Location(40.869,141.378),18.218406593406584), (Location(-33.456,-70.547),0.0), (Location(66.033,117.4),1.1674107142857122), (Location(-11.7,43.233),25.843572984749454), (Location(25.452,82.859),27.00383141762453), (Location(43.067,-98.533),8.667032163742693), (Location(25.7,100.183),15.48626373626374), (Location(30.233,-81.667),20.794368340943702), (Location(51.3,9.45),9.937597261126678), (Location(54.633,43.233),6.112191358024691), (Location(42.333,42.983),12.956269522534587), (Location(10.083,105.717),27.979284369114886), (Location(57.933,13.067),8.067448680351907), (Location(36.2,133.333),13.930402930402927), (Location(72.967,-84.383),3.3611111111111116), (Location(50.583,8.7),9.7341049382716), (Location(23.9,106.6),22.6031746..."
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 13,
+      "time" : "Took: 3.225s, at 2018-10-16 21:44"
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "0EDF0A2B2ED14043B75BB892EC78EF63"
+    },
+    "cell_type" : "code",
+    "source" : "val p: Double = 2\nval height: Int = 180\nval width: Int = 360\n\n\ndef predictTemperatureRDD(tempRDD: RDD[(Location, Temperature)], location: Location): Temperature = {\n\n  def weight(dist: Double): Double = 1 / math.pow(dist, p)\n\n  val weightAccum = sparkContext.doubleAccumulator(\"weight\")\n  val tempAccum   = sparkContext.doubleAccumulator(\"temp\")\n\n  // Check if there is any station close than 1km to use its temp. Otherwise use the weighted temp\n  val computedDistRDD = tempRDD.map({case (loc, temp) => (loc.distance(location), temp)}).cache()\n  val minDist = computedDistRDD.filter({case (dist, _) => dist < 1})\n  if(!minDist.isEmpty()) minDist.first()._2\n  else {\n    computedDistRDD\n      .foreach({\n        case (dist, temp) =>\n          val w: Double = weight(dist)\n          weightAccum.add(w)\n          tempAccum.add(temp * w)\n      })\n\n    tempAccum.value / weightAccum.value\n  }\n}\n\ndef predictTemperatureRDDNoAcccum(tempRDD: RDD[(Location, Temperature)], location: Location): Temperature = {\n\n  def weight(dist: Double): Double = 1 / math.pow(dist, p)\n\n  // Check if there is any station close than 1km to use its temp. Otherwise use the weighted temp\n  val computedDistRDD = tempRDD.map({case (loc, temp) => (loc.distance(location), temp)}).cache()\n  \n  val minDist = computedDistRDD.filter({case (dist, _) => dist < 1})\n  \n  if(!minDist.isEmpty()) minDist.first()._2\n  else {\n    val (w, t) = computedDistRDD\n              .map({\n                case (dist, temp) =>\n                  val w: Double = weight(dist)\n                  (w, w * temp)\n              })\n             .reduce({case (x, y) => (x._1 + y._1, x._2 + y._2)})\n    t / w \n  }\n}\n\n\ndef predictTemperatureSeq(temperatures: Iterable[(Location, Temperature)], location: Location): Temperature = {\n\n    def weight(dist: Double): Double = 1 / math.pow(dist, p)\n\n    var weightAccum: Double = 0\n    var tempAccum: Double   = 0\n\n    // Check if there is any station close than 1km to use its temp. Otherwise use the weighted temp\n    val computedDist = temperatures.map({case (loc, temp) => (loc.distance(location), temp)})\n\n    val minDist = computedDist.filter({case (dist, _) => dist < 1})\n\n    if(minDist.nonEmpty) minDist.head._2\n    else {\n      computedDist\n        .foreach({\n          case (dist, temp) =>\n            val w: Double = weight(dist)\n            weightAccum += w\n            tempAccum += w * temp\n        })\n\n      tempAccum / weightAccum\n    }\n  }\n",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "p: Double = 2.0\nheight: Int = 180\nwidth: Int = 360\npredictTemperatureRDD: (tempRDD: org.apache.spark.rdd.RDD[(Location, Temperature)], location: Location)Temperature\npredictTemperatureRDDNoAcccum: (tempRDD: org.apache.spark.rdd.RDD[(Location, Temperature)], location: Location)Temperature\npredictTemperatureSeq: (temperatures: Iterable[(Location, Temperature)], location: Location)Temperature\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 6,
+      "time" : "Took: 2.883s, at 2018-10-16 21:25"
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "5D607DF67119452681D81A1F1E409E31"
+    },
+    "cell_type" : "code",
+    "source" : "val pt = predictTemperatureRDD(cummtempDf, Location(10,10))\n",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "pt: Temperature = 23.5477573694424\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 7,
+      "time" : "Took: 2.289s, at 2018-10-16 21:25"
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "18E6B2A6090D44E086700493B672CD4C"
+    },
+    "cell_type" : "code",
+    "source" : "val pt2 = predictTemperatureRDDNoAcccum(cummtempDf, Location(10,10))",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "pt2: Temperature = 23.5477573694424\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 8,
+      "time" : "Took: 1.965s, at 2018-10-16 21:25"
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "C0F6879E231A48CB9969EE6F247CAF82"
+    },
+    "cell_type" : "code",
+    "source" : "val pt3 = predictTemperatureSeq(cummtempSeq, Location(10,10))",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "pt3: Temperature = 23.547757369442383\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 9,
+      "time" : "Took: 1.632s, at 2018-10-16 21:25"
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "2B7AD193E6CC4295A2FA59B3DB545CE2"
+    },
+    "cell_type" : "code",
+    "source" : "def interpolateColor(points: Iterable[(Temperature, Color)], value: Temperature): Color = {\n  // Find the above and below points for value\n  var below: (Temperature, Color) = (Double.NegativeInfinity, Color(0,0,0))\n  var above: (Temperature, Color) = (Double.PositiveInfinity, Color(0,0,0))\n\n  var exactTemperature = false\n\n  points.takeWhile(_ => !exactTemperature).foreach({\n    case (t, c) =>\n      if( t == value) { exactTemperature = true; below = (t,c) }\n      else if(t < value && t > below._1) below = (t, c)\n      else if(t > value && t < above._1) above = (t, c)\n  })\n\n  if (exactTemperature)\n    below._2\n  else{\n    if(below._1 == Double.NegativeInfinity) above._2\n    else if (above._1 == Double.PositiveInfinity) below._2\n    else {\n      val weight = (value - below._1) / (above._1 - below._1)\n      Color((below._2.red   * (1 - weight) + above._2.red   * weight).round.toInt,\n            (below._2.green * (1 - weight) + above._2.green * weight).round.toInt,\n            (below._2.blue  * (1 - weight) + above._2.blue  * weight).round.toInt)\n    }\n  }\n}\n\ndef visualizeRDD(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)]): Array[(Int, Int, Int, Int)] = {\n\n  def toLocation(coord: (Int, Int)): Location = {\n    val lon = (coord._2 - width/2) * (360 / width)\n    val lat = -(coord._1 - height/2) * (180 / height)\n    Location(lat, lon)\n  }\n\n  val coords = for {\n    i <- 0 until height\n    j <- 0 until width\n  } yield (i, j)\n\n  val coordsRDD = sparkContext.parallelize(coords).cache()\n\n  val pixels = coordsRDD\n    .map(\n      c => {\n        val temp = predictTemperatureSeq(temperatures, toLocation(c))\n        val col  = interpolateColor(colors, temp)\n        (col.red, col.green, col.blue, 255)\n      }\n    ).collect()\n  pixels\n//   Image(width, height, pixels)\n}\n\nval colors: Iterable[(Temperature, Color)] = Iterable(\n  (60, Color(255,255,255)),\n  (32, Color(255,0,0)),\n  (12, Color(255,255,0)),\n  (0, Color(0,255,255)),\n  (-15, Color(0,0,255)),\n  (-27, Color(255,0,255)),\n  (-50, Color(33,0,107)),\n  (-60, Color(0,0,0))\n)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "interpolateColor: (points: Iterable[(Temperature, Color)], value: Temperature)Color\nvisualizeRDD: (temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)])Array[(Int, Int, Int, Int)]\ncolors: Iterable[(Temperature, Color)] = List((60.0,Color(255,255,255)), (32.0,Color(255,0,0)), (12.0,Color(255,255,0)), (0.0,Color(0,255,255)), (-15.0,Color(0,0,255)), (-27.0,Color(255,0,255)), (-50.0,Color(33,0,107)), (-60.0,Color(0,0,0)))\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 10,
+      "time" : "Took: 3.733s, at 2018-10-16 21:25"
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "951B412611D1401EAEB1845198F361E4"
+    },
+    "cell_type" : "code",
+    "source" : "val image = visualizeRDD(cummtempSeq, colors)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "image: Array[(Int, Int, Int, Int)] = Array((123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,255), (123,255,132,..."
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 11,
+      "time" : "Took: 3m0.949s, at 2018-10-16 21:28"
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "86396462C17F40249B5496963F91D902"
+    },
+    "cell_type" : "code",
+    "source" : "\nInstrumentation.getObjectSize(cummtempSeq)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "<console>:96: error: value getObjectSize is not a member of object java.lang.instrument.Instrumentation\n       Instrumentation.getObjectSize(cummtempSeq)\n                       ^\n"
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true,
+      "id" : "E40FF0F32DF3408E863E979C1702A577"
+    },
+    "cell_type" : "code",
+    "source" : "",
+    "outputs" : [ ]
+  } ],
+  "nbformat" : 4
+}

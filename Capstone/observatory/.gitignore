@@ -1,0 +1,9 @@
+### Scala template
+*.class
+*.log
+target
+src/main/resources
+
+# Intellij
+.idea
+

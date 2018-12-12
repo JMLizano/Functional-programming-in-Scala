@@ -1,0 +1,57 @@
+package observatory
+
+import Visualization.predictTemperature
+
+/**
+  * 4th milestone: value-added information
+  */
+object Manipulation {
+
+  def doGrid(minX: Int, maxX: Int, minY: Int, maxY: Int, stepX: Int, stepY: Int): Iterable[GridLocation] = {
+    for {
+      x <- minX to maxX by  stepX
+      y <- minY to maxY by  stepY
+    } yield GridLocation(y,x)
+  }
+
+  /**
+    * @param temperatures Known temperatures
+    * @return A function that, given a latitude in [-89, 90] and a longitude in [-180, 179],
+    *         returns the predicted temperature at this location
+    */
+  def makeGrid(temperatures: Iterable[(Location, Temperature)]): GridLocation => Temperature = {
+    val grid = for {
+      x <- -180 to 179 by  1
+      y <-   90 to -89 by -1
+    } yield (GridLocation(y,x), predictTemperature(temperatures, Location(y, x)))
+
+    val gridTempMap = grid.toMap
+    (g: GridLocation) => gridTempMap(g)
+  }
+
+  /**
+    * @param temperaturess Sequence of known temperatures over the years (each element of the collection
+    *                      is a collection of pairs of location and temperature)
+    * @return A function that, given a latitude and a longitude, returns the average temperature at this location
+    */
+  def average(temperaturess: Iterable[Iterable[(Location, Temperature)]]): GridLocation => Temperature = {
+    val gridLocations : Iterable[GridLocation => Temperature] = temperaturess.map(makeGrid)
+    val grid = doGrid(-180, 179, 90, -89, 1, -1)
+    val gridAvgTempMap = grid.map(g => (g, gridLocations.map(_(g)).sum / gridLocations.size)).toMap
+    (g: GridLocation) => gridAvgTempMap(g)
+  }
+
+
+  /**
+    * @param temperatures Known temperatures
+    * @param normals A grid containing the “normal” temperatures
+    * @return A grid containing the deviations compared to the normal temperatures
+    */
+  def deviation(temperatures: Iterable[(Location, Temperature)], normals: GridLocation => Temperature): GridLocation => Temperature = {
+    val grid = makeGrid(temperatures)
+    (g: GridLocation) => grid(g) - normals(g)
+  }
+
+
+}
+
